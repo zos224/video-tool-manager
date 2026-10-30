@@ -1,0 +1,18 @@
+<!doctype html><html lang="vi"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>DramaClaw · Quản lý kích hoạt</title>
+<style>body{font:16px system-ui;background:#0a0c12;color:#e8eaf0;max-width:1100px;margin:48px auto;padding:24px}input,button{font:inherit;padding:10px;margin:6px;background:#15161d;color:inherit;border:1px solid #2f3036;border-radius:8px}button{cursor:pointer}pre{white-space:pre-wrap;overflow-wrap:anywhere}table{width:100%;border-collapse:collapse}td,th{text-align:left;padding:10px;border-bottom:1px solid #2f3036}#status{color:#efa831}</style>
+<h1>DramaClaw · Mã kích hoạt</h1><p>Mỗi key kích hoạt một máy. Giấy phép đã cấp dùng offline; vô hiệu hóa chỉ áp dụng cho key chưa dùng.</p>
+<form id="login"><label>Token quản trị <input id="token" type="password" required autocomplete="off"></label><button>Kết nối</button></form>
+<p id="status" role="status"></p><section id="panel" hidden>
+<form id="create"><label>Nhãn <input id="label" maxlength="160"></label><label>Số key <input id="count" type="number" min="1" max="100" value="1" required></label><button>Tạo key</button></form>
+<p>Key đầy đủ chỉ hiển thị ngay sau khi tạo. Hãy lưu và gửi riêng cho người nhận.</p><pre id="generated"></pre>
+<button id="refresh">Cập nhật danh sách</button><table><thead><tr><th>Key</th><th>Nhãn</th><th>Trạng thái</th><th>Thời điểm kích hoạt</th><th></th></tr></thead><tbody id="rows"></tbody></table></section>
+<script>
+let adminToken='';
+async function api(path,method='GET',body){const r=await fetch(path,{method,headers:{Authorization:'Bearer '+adminToken,'Content-Type':'application/json'},body:body===undefined?undefined:JSON.stringify(body)});const data=await r.json();if(!r.ok)throw new Error(data.detail||'Yêu cầu thất bại');return data}
+async function refresh(){const data=await api('/admin/keys');document.querySelector('#rows').replaceChildren();for(const k of data.keys){const tr=document.createElement('tr');for(const value of [k.prefix+'…',k.label,k.activated_at?'Đã dùng':k.disabled?'Đã khóa':'Chưa dùng',k.activated_at||'']){const td=document.createElement('td');td.textContent=value;tr.append(td)}const td=document.createElement('td');if(!k.activated_at&&!k.disabled){const b=document.createElement('button');b.textContent='Khóa key';b.onclick=()=>run(async()=>{await api('/admin/keys/'+k.key_hash+'/disable','POST');await refresh()});td.append(b)}tr.append(td);document.querySelector('#rows').append(tr)}}
+async function run(fn){try{document.querySelector('#status').textContent='Đang xử lý…';await fn();document.querySelector('#status').textContent='Đã cập nhật'}catch(e){document.querySelector('#status').textContent=e.message}}
+document.querySelector('#login').onsubmit=e=>{e.preventDefault();adminToken=document.querySelector('#token').value;document.querySelector('#token').value='';run(async()=>{await api('/admin/init','POST');await refresh();document.querySelector('#panel').hidden=false})};
+document.querySelector('#create').onsubmit=e=>{e.preventDefault();run(async()=>{const d=await api('/admin/keys','POST',{count:Number(document.querySelector('#count').value),label:document.querySelector('#label').value});document.querySelector('#generated').textContent=d.keys.join('\n');await refresh()})};
+document.querySelector('#refresh').onclick=()=>run(refresh);
+</script></html>
